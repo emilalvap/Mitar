@@ -1,7 +1,6 @@
 #!/bin/bash
 if [[ -x mitar ]]; then
 	#statements
-	chmod +x mitar;
 	if [[ -d tmp ]]; then
 		echo -ne Borrando tmp...;rm -rf tmp; echo Finalizado
 	fi
