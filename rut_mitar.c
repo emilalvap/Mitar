@@ -27,6 +27,7 @@ int copynFile(FILE *origen, FILE *destino, int nBytes){
 			rt = fwrite(ptr,1,1,destino);
 			if(rt !=1) return (-1);
 		}
+		else break;
 	}
 	free(ptr);
 	return i;
@@ -50,7 +51,7 @@ int readHeader(FILE *tarFile, stHeaderEntry **header, int *nFiles){
 	int nr_files=0;
 	int i =0;
 	int* psize = malloc(sizeof(int));
-	char* pname;
+	char* pname = NULL;
 	int size;
 	nr_files = *nFiles;
 	
@@ -60,14 +61,15 @@ int readHeader(FILE *tarFile, stHeaderEntry **header, int *nFiles){
 	for(i =0;i<nr_files;i++){
 		//nombre
 		
-		size = loadstr(tarFile,pname);
-		
+		size = loadstr(tarFile,&pname);
 		if(size != 0 ) return (EXIT_FAILURE);
 		array[i].name = pname;	
 		//tamaño
 		size = fread(psize,4,1,tarFile);
-		if(size != 4 ) return (EXIT_FAILURE);
+		//if(size != 4 ) return (EXIT_FAILURE);
 		array[i].size = *psize;
+		printf("archivo %s tamaño %d", array[i].name,array[i].size);
+		
 	}
 
 	(*nFiles)=nr_files;
@@ -93,7 +95,7 @@ int loadstr( FILE *file, char** buf ){
 	while(found == -1 && namesize<MAX_NAME_SIZE){
 		rt = fread(name,1,1,file);
 		if(rt !=1) return (EXIT_FAILURE);
-		if(*name!='\0')found=0;
+		if(*name=='\0')found=0;
 		namesize++;
 	}
 	
@@ -103,12 +105,9 @@ int loadstr( FILE *file, char** buf ){
 	free(name);
 
 	name = malloc(namesize);
-	printf("aa\n");
 	rt = fread(name,namesize,1,file);
 	if(rt !=1) return (EXIT_FAILURE);
-	printf("%s\n",name);
 	*buf = name;
-	printf("aa\n");
 	return found;
 }
 
@@ -141,7 +140,7 @@ int createTar(int nFiles, char *fileNames[], char tarName[]) {
 	arrayCabecera = malloc(sizeof(stHeaderEntry)* nFiles);
 
 	for(i=0;i<nFiles;i++){
-		shift_amount+=strlen(fileNames[i]);
+		shift_amount+=strlen(fileNames[i])+1;
 		arrayCabecera[i].name = fileNames[i];
 	}
 	shift_amount+= (nFiles+1)*4;
@@ -150,7 +149,7 @@ int createTar(int nFiles, char *fileNames[], char tarName[]) {
 	if(out == NULL) return (EXIT_FAILURE);
 
 	rt = fwrite(ptr,shift_amount,1,out);
-	free(ptr);
+	
 	for(i=0;i<nFiles;i++){
 
 		input = fopen(fileNames[i],"r");
@@ -170,12 +169,13 @@ int createTar(int nFiles, char *fileNames[], char tarName[]) {
 
 	for(i=0;i<nFiles;i++){
 		printf("%s",arrayCabecera[i].name);
-		rt = fwrite(arrayCabecera[i].name,strlen(arrayCabecera[i].name),1,out);
+		rt = fwrite(arrayCabecera[i].name,strlen(arrayCabecera[i].name)+1,1,out);
 		if(rt == -1) return (EXIT_FAILURE);
 		rt = fwrite(&arrayCabecera[i].size,4,1,out);
 		if(rt == -1) return (EXIT_FAILURE);
 	}	
 	free(arrayCabecera);
+	free(ptr);
 	if(fclose(out)!=0) return (EXIT_FAILURE);
 	return (EXIT_SUCCESS);
 }
@@ -202,8 +202,8 @@ int extractTar(char tarName[]) {
 	if(tar==NULL) return (EXIT_FAILURE);
 	rt = fread(nr_files,4,1,tar);
 	//if(rt!=4) return (EXIT_FAILURE);
-	printf("%d\n", *nr_files);
 	rt = readHeader(tar,&arrayCabecera,nr_files);
+	//printf("%d\n", *nr_files);
 	for(i=0;i<*nr_files;i++){
 		out = fopen(arrayCabecera[i].name, "w");
 		if(out==NULL) return (EXIT_FAILURE);
