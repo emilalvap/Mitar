@@ -3,7 +3,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include "mitar.h"
-
+#include <limits.h>
+#define MAX_NAME_SIZE 32
 extern char *uso;
 
 /** Copia el nBytes del fichero origen al fichero destino.
@@ -16,12 +17,19 @@ extern char *uso;
  */
 int copynFile(FILE *origen, FILE *destino, int nBytes){
  // Completar la funci�n
-	void *ptr;
-	ptr= malloc(nBytes);
-	fread(ptr, nBytes, 1,origen);
-	fwrite(ptr,1,nBytes,destino);
-
-	return nBytes;
+	int i=0;
+	void* ptr = malloc(1);
+	int rt=0;
+	for(i=0;i<nBytes && feof(origen)==0;i++){
+		rt = fread(ptr,1,1,origen);
+		if(feof(origen)==0){
+			if(rt !=1) return (-1);
+			rt = fwrite(ptr,1,1,destino);
+			if(rt !=1) return (-1);
+		}
+	}
+	free(ptr);
+	return i;
 }
 
 /** Carga en memoria la cabecera del tarball.
@@ -35,16 +43,38 @@ int copynFile(FILE *origen, FILE *destino, int nBytes){
  * Devuelve EXIT_SUCCESS en caso de exito o EXIT_FAILURE en caso de error
  * (macros definidas en stdlib.h).
  */
+
 int readHeader(FILE *tarFile, stHeaderEntry **header, int *nFiles){
  // Completar la funci�n 
 	stHeaderEntry* array=NULL;
 	int nr_files=0;
+	int i =0;
+	int* psize = malloc(sizeof(int));
+	char* pname;
+
+	// Leemos el N
+	int* ptr = malloc(sizeof(int));
+	int size = fread(ptr,4,1,tarFile);
+	if(size != 4 ) return (EXIT_FAILURE);
+	nr_files = *ptr;
 
 	array = malloc(sizeof(stHeaderEntry)*nr_files);
 
+	//Se lee la información
+	for(i =0;i<nr_files;i++){
+		//nombre
+		size = loadstr(tarFile,pname);
+		if(size != 0 ) return (EXIT_FAILURE);
+		array[i].name = pname;
+		//tamaño
+		size = fread(psize,4,1,tarFile);
+		if(size != 4 ) return (EXIT_FAILURE);
+		array[i].size = *psize;
+	}
+
 	(*nFiles)=nr_files;
 	(*header)=array;
-
+	free(ptr);
 	return (EXIT_SUCCESS);
 }
 
@@ -57,7 +87,29 @@ int readHeader(FILE *tarFile, stHeaderEntry **header, int *nFiles){
  * Devuelve: 0 si tuvo exito, -1 en caso de error.
  */
 int loadstr( FILE *file, char** buf ){
- // Completar la funci�n 
+ // Completar la funci�n
+	int rt=0;
+	int found = -1;
+	int namesize = 0;
+	char* name = malloc(1);
+	while(found == -1 && namesize<MAX_NAME_SIZE){
+		rt = fread(name,1,1,file);
+		if(rt !=1) return (EXIT_FAILURE);
+		if(*name!='\0')found=0;
+		namesize++;
+	}
+
+	rt = fseek(file, -namesize,SEEK_CUR);
+	if(rt !=0) return (EXIT_FAILURE);
+	
+	free(name);
+
+	name = malloc(namesize);
+	rt = fread(name,namesize,1,file);
+	if(rt !=1) return (EXIT_FAILURE);
+	*buf = name;
+
+	return found;
 }
 
 /** crea un tarball a partir de unos ficheros de entrada.
@@ -81,39 +133,51 @@ int loadstr( FILE *file, char** buf ){
  */
 int createTar(int nFiles, char *fileNames[], char tarName[]) {
  // Completar la funci�n 
-	int i=0,fileSize,strShift=0;
-	FILE * out = fopen( tarName, 'a+');
-	char fileName[];
-	stHeaderEntry arrayCabecera[];
-	
+	int i,shift_amount=0, rt=0,size;
+	void* ptr = malloc(1);
+	FILE *out;
+	FILE* input;
+	stHeaderEntry* arrayCabecera;
 	arrayCabecera = malloc(sizeof(stHeaderEntry)* nFiles);
-	
-	FILE* pinput = arrayCabecera + nFiles*sizeof(stHeaderEntry) + sizeof(int);
-	
-	for(i = 0; i<nFiles;i++){
-		//Copia de archivo
-		strcpy(fileName,fileNames);
 
-		FILE* tarFile = fopen(fileName, 'a+');
-
-		fseek(tarFile, 0L, SEEK_END);
-		fileSize = ftell(tarFile);
-		fseek(tarFile,0L, SEEK_SET);
-		copynFile(tarFile, pinput,fileSize);
-		fclose(tarFile);
-
-		//Escribir la cabecera
-		arrayCabecera[i].name = fileNames+strShift;
-		strShift += strlen(fileName);
-		arrayCabecera[i].size = fileSize;
-	}
-	fwrite(&nFiles,sizeof(int),1,out);
-	strShift=0;
 	for(i=0;i<nFiles;i++){
-		fwrite(fileNames+strShift,1,strlen(fileNames+strShift),out);
-		strShift += strlen(fileNames+strShift);
+		shift_amount+=strlen(fileNames[i]);
+		arrayCabecera[i].name = fileNames[i];
 	}
-	fclose(out);
+	shift_amount+= (nFiles+1)*4;
+
+	out = fopen(tarName,"w");
+	if(out == NULL) return (EXIT_FAILURE);
+
+	rt = fwrite(ptr,shift_amount,1,out);
+	free(ptr);
+	for(i=0;i<nFiles;i++){
+
+		input = fopen(fileNames[i],"r");
+		if(input == NULL) return (EXIT_FAILURE);
+		size = copynFile(input,out,INT_MAX);
+
+		if(size != -1) arrayCabecera[i].size = size;
+		else return (EXIT_FAILURE);
+		if(fclose(input)!=0) return (EXIT_FAILURE);
+	}
+
+	rt = fseek(out,0,SEEK_SET);
+	if(rt != 0) return (EXIT_FAILURE);
+	
+	rt = fwrite(&nFiles,4,1,out);
+	//if(rt!=4) return (EXIT_FAILURE);
+
+	for(i=0;i<nFiles;i++){
+		printf("%s",arrayCabecera[i].name);
+		rt = fwrite(arrayCabecera[i].name,strlen(arrayCabecera[i].name),1,out);
+		if(rt == -1) return (EXIT_FAILURE);
+		rt = fwrite(&arrayCabecera[i].size,4,1,out);
+		if(rt == -1) return (EXIT_FAILURE);
+	}	
+	free(arrayCabecera);
+	if(fclose(out)!=0) return (EXIT_FAILURE);
+	return (EXIT_SUCCESS);
 }
 
 /** Extrae todos los ficheros de un tarball.
@@ -130,5 +194,6 @@ int createTar(int nFiles, char *fileNames[], char tarName[]) {
  */
 int extractTar(char tarName[]) {
  // Completar la funci�n 
+	return 0;
 }
   
