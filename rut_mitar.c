@@ -51,21 +51,19 @@ int readHeader(FILE *tarFile, stHeaderEntry **header, int *nFiles){
 	int i =0;
 	int* psize = malloc(sizeof(int));
 	char* pname;
-
-	// Leemos el N
-	int* ptr = malloc(sizeof(int));
-	int size = fread(ptr,4,1,tarFile);
-	if(size != 4 ) return (EXIT_FAILURE);
-	nr_files = *ptr;
-
+	int size;
+	nr_files = *nFiles;
+	
 	array = malloc(sizeof(stHeaderEntry)*nr_files);
-
+	
 	//Se lee la información
 	for(i =0;i<nr_files;i++){
 		//nombre
+		
 		size = loadstr(tarFile,pname);
+		
 		if(size != 0 ) return (EXIT_FAILURE);
-		array[i].name = pname;
+		array[i].name = pname;	
 		//tamaño
 		size = fread(psize,4,1,tarFile);
 		if(size != 4 ) return (EXIT_FAILURE);
@@ -74,7 +72,7 @@ int readHeader(FILE *tarFile, stHeaderEntry **header, int *nFiles){
 
 	(*nFiles)=nr_files;
 	(*header)=array;
-	free(ptr);
+
 	return (EXIT_SUCCESS);
 }
 
@@ -98,17 +96,19 @@ int loadstr( FILE *file, char** buf ){
 		if(*name!='\0')found=0;
 		namesize++;
 	}
-
+	
 	rt = fseek(file, -namesize,SEEK_CUR);
 	if(rt !=0) return (EXIT_FAILURE);
 	
 	free(name);
 
 	name = malloc(namesize);
+	printf("aa\n");
 	rt = fread(name,namesize,1,file);
 	if(rt !=1) return (EXIT_FAILURE);
+	printf("%s\n",name);
 	*buf = name;
-
+	printf("aa\n");
 	return found;
 }
 
@@ -194,6 +194,27 @@ int createTar(int nFiles, char *fileNames[], char tarName[]) {
  */
 int extractTar(char tarName[]) {
  // Completar la funci�n 
-	return 0;
+	int rt=0,i;
+	int* nr_files = malloc(sizeof(int));	
+	FILE* out;
+	FILE* tar = fopen(tarName,"r");	
+	stHeaderEntry* arrayCabecera;
+	if(tar==NULL) return (EXIT_FAILURE);
+	rt = fread(nr_files,4,1,tar);
+	//if(rt!=4) return (EXIT_FAILURE);
+	printf("%d\n", *nr_files);
+	rt = readHeader(tar,&arrayCabecera,nr_files);
+	for(i=0;i<*nr_files;i++){
+		out = fopen(arrayCabecera[i].name, "w");
+		if(out==NULL) return (EXIT_FAILURE);
+		//Escribimos el archivo			
+		rt = copynFile(tar,out,arrayCabecera[i].size);
+		if(rt!= arrayCabecera[i].size)return (EXIT_FAILURE);
+		if(fclose(out)!=0) return (EXIT_FAILURE);	
+	}
+	free(nr_files);
+	free(arrayCabecera);
+	if(fclose(tar)!=0) return (EXIT_FAILURE);
+	return (EXIT_SUCCESS);
 }
   
