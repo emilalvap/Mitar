@@ -68,7 +68,7 @@ int readHeader(FILE *tarFile, stHeaderEntry **header, int *nFiles){
 		size = fread(psize,4,1,tarFile);
 		//if(size != 4 ) return (EXIT_FAILURE);
 		array[i].size = *psize;
-		printf("archivo %s tamaño %d", array[i].name,array[i].size);
+		
 		
 	}
 
@@ -168,7 +168,7 @@ int createTar(int nFiles, char *fileNames[], char tarName[]) {
 	//if(rt!=4) return (EXIT_FAILURE);
 
 	for(i=0;i<nFiles;i++){
-		printf("%s",arrayCabecera[i].name);
+		
 		rt = fwrite(arrayCabecera[i].name,strlen(arrayCabecera[i].name)+1,1,out);
 		if(rt == -1) return (EXIT_FAILURE);
 		rt = fwrite(&arrayCabecera[i].size,4,1,out);
@@ -203,7 +203,7 @@ int extractTar(char tarName[]) {
 	rt = fread(nr_files,4,1,tar);
 	//if(rt!=4) return (EXIT_FAILURE);
 	rt = readHeader(tar,&arrayCabecera,nr_files);
-	//printf("%d\n", *nr_files);
+	
 	for(i=0;i<*nr_files;i++){
 		out = fopen(arrayCabecera[i].name, "w");
 		if(out==NULL) return (EXIT_FAILURE);
