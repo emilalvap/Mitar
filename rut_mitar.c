@@ -242,14 +242,14 @@ int deleteFile(char tarName[],char fileName[]){
 	}
 	
 	*nr_files=(*nr_files)-1;
-	printf("%d\n",*nr_files);
+	
 	rt = fwrite(nr_files,4,1,temp);
 
 	for(i=0;i<*nr_files;i++){
 		fwrite(nuevaCabecera[i].name,strlen(nuevaCabecera[i].name)+1,1,temp);
-		printf("%s\n",nuevaCabecera[i].name);
+		
 		fwrite(&nuevaCabecera[i].size,4,1,temp);
-		printf("%d\n",nuevaCabecera[i].size);
+		
 	}
 	
 	for(i=0;i<(*nr_files)+1;i++){
