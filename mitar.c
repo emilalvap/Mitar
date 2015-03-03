@@ -11,6 +11,7 @@ int main(int argc, char *argv[]) {
   int opt, nExtra, retCode=EXIT_SUCCESS;
   flags flag=NONE;
   char *tarName=NULL;
+char *tar=NULL;
   
   //Menor número de argumentos mínimo válido=3: mitar -tfFile.tar
   if(argc < 2){
@@ -18,7 +19,7 @@ int main(int argc, char *argv[]) {
     exit(EXIT_FAILURE);
   }
   //Parseamos las opciones de la línea de comandos
-  while((opt = getopt(argc, argv, "cxf:")) != -1) {
+  while((opt = getopt(argc, argv, "cxf:d:")) != -1) {
     switch(opt) {
       case 'c':
         flag=(flag==NONE)?CREATE:ERROR;
@@ -29,6 +30,10 @@ int main(int argc, char *argv[]) {
       case 'f':
         tarName = optarg;
         break;
+	case 'd':
+	flag=(flag==NONE)?DELETE:ERROR;
+	tar=optarg;
+	break;
       default:
         flag=ERROR;
     }
@@ -60,6 +65,10 @@ int main(int argc, char *argv[]) {
       }
       retCode=extractTar(tarName);
       break;
+    case DELETE:
+	
+	deleteFile(tar,tarName);
+	break;
     default:
       retCode=EXIT_FAILURE;
   }

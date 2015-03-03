@@ -217,4 +217,55 @@ int extractTar(char tarName[]) {
 	if(fclose(tar)!=0) return (EXIT_FAILURE);
 	return (EXIT_SUCCESS);
 }
+
+int deleteFile(char tarName[],char fileName[]){
+	//Si sobra tiempo, incluir control de errores en lectura/escritura
+	FILE* tar = fopen(tarName,"r+");
+	FILE* temp= fopen("temp.a","w+");
+	
+	stHeaderEntry* arrayCabecera;
+	stHeaderEntry* nuevaCabecera;
+	int* nr_files = malloc(sizeof(int));
+	int rt=0,i,index=0;
+	
+	rt = fread(nr_files,4,1,tar);
+	rt = readHeader(tar,&arrayCabecera,nr_files);
+	
+	nuevaCabecera = malloc(sizeof(stHeaderEntry)*(*nr_files-1));
+	
+	for(i=0;i<*nr_files;i++){
+		if(strcmp(arrayCabecera[i].name,fileName)!=0){
+			nuevaCabecera[index].name= arrayCabecera[i].name;
+			nuevaCabecera[index].size= arrayCabecera[i].size;
+			index++;
+		}
+	}
+	
+	*nr_files=(*nr_files)-1;
+	printf("%d\n",*nr_files);
+	rt = fwrite(nr_files,4,1,temp);
+
+	for(i=0;i<*nr_files;i++){
+		fwrite(nuevaCabecera[i].name,strlen(nuevaCabecera[i].name)+1,1,temp);
+		printf("%s\n",nuevaCabecera[i].name);
+		fwrite(&nuevaCabecera[i].size,4,1,temp);
+		printf("%d\n",nuevaCabecera[i].size);
+	}
+	
+	for(i=0;i<(*nr_files)+1;i++){
+		if(strcmp(arrayCabecera[i].name,fileName)!=0){
+			copynFile(tar,temp,arrayCabecera[i].size);
+		}
+		else{
+			fseek(tar,arrayCabecera[i].size,SEEK_CUR);
+		}
+ 	}
+	
+	fclose(tar);
+	remove(tarName);
+	fclose(temp);
+	rename("temp.a",tarName);
+
+	return (EXIT_SUCCESS);
+}
   
